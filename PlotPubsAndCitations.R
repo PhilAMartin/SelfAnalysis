@@ -9,13 +9,15 @@ require(dplyr)    # for data tidying
 require(stringr)  # for working with string data
 
 # set user id (get this from your Google Scholar URL)
-me <- "XXIpO1YAAAAJ"
+me <- "4M1G6yUAAAAJ"
 
 # get publications
 pubs <- 
   scholar::get_publications(me) %>% 
   # get rid of non-journal articles (e.g. theses) - in my profiles, these don't have a year
-  subset(is.finite(year))
+  subset(is.finite(year)&journal!="Landis-II Foundation"&journal!="Bournemouth University"&journal!="")
+
+
 
 # make new column with first author from each publication
 pubs$first_author <- 
@@ -26,26 +28,17 @@ pubs$first_author <-
   strsplit(split="[,]") %>% 
   sapply(function(x) x[1])
 
-pubs$first_author
-
 # figure out which papers I wrote
-my_name <- "Zipper"
+my_name <- "Martin"
 
 pubs$first_author_me <-
   pubs$first_author %>% 
   stringr::str_detect(pattern = my_name)
 
-# i am co-lead author on a paper in which my name is listed second; 
-# i also want to include this, which I will do using the pubid (which I looked in the pubs table to get)
-pubs$first_author_me[pubs$pubid %in% c("B3FOqHPlNUQC")] <- TRUE
-
-
-# use `pubid` to get citations for each paper and combined
+# use `pubid` to get citations for each paper and combine
 for (i in 1:length(pubs$pubid)){
   # grab citations for this paper
-  paper_cites <- 
-    scholar::get_article_cite_history(id = me, article = pubs$pubid[i])
-  
+  paper_cites <-scholar::get_article_cite_history(id =me, article = pubs$pubid[i])
   # make master data frame
   if (i == 1){
     all_cites <- paper_cites
@@ -78,16 +71,17 @@ cites_yr <-
 pubs_and_cites <- rbind(pubs_yr, cites_yr)
 
 ## finally - let's plot!
-ggplot(pubs_and_cites, aes(x=factor(year), y=number, fill=first_author_me)) +
-  geom_bar(stat="identity") +
+ggplot(pubs_and_cites, aes(x=year, y=number, colour=first_author_me)) +
+  geom_point(size=4,shape=16,alpha=0.5)+
+  geom_line(size=1,alpha=0.5)+
   facet_wrap(~factor(metric, levels=c("Publications", "Citations")),
-             scales = "free_y") +
+             scales = "free_y")+
   # everything below here is just aesthetics
-  scale_x_discrete(name = "Year") +
-  scale_y_continuous(name = "Number") +
-  scale_fill_manual(name = "First Author", 
+  scale_x_continuous(name = "Year") +
+  scale_y_continuous(name = "Number",limits=c(0,NA)) +
+  scale_colour_manual(name = "First Author", 
                     values = c("TRUE"="#e6194b", "FALSE"="#0082c8"),
-                    labels = c("TRUE"="Zipper", "FALSE"="Other")) +
+                    labels = c("TRUE"="Martin", "FALSE"="Other")) +
   theme_bw(base_size=12) +
   theme(panel.grid = element_blank(),
         strip.background = element_blank(),
@@ -96,5 +90,5 @@ ggplot(pubs_and_cites, aes(x=factor(year), y=number, fill=first_author_me)) +
         legend.title = element_text(size = 10, face="bold"),
         legend.position = c(0.01,0.99),
         legend.justification = c(0, 1)) +
-  ggsave("PlotPubsAndCitations.png", 
-         width = 8, height = 4, units = "in")
+  ggsave("figures/PlotPubsAndCitations.pdf", 
+         width = 8, height = 4, units = "in",dpi=400)
